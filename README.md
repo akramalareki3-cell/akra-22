@@ -30,3 +30,13 @@ GitHub does not create a personal access token from an email address and passwor
 
 The workflow is in [build-apk.yml](build-apk.yml). No service token, APK, or success state is bundled with this project.
 
+
+## Run a build without a personal access token
+
+The repository also includes a GitHub Actions workflow at [\.github/workflows/build-apk.yml](.github/workflows/build-apk.yml). To run it manually from GitHub:
+
+1. Open the **Actions** tab and choose **APK Maker Studio — Android build**.
+2. Select **Run workflow** and fill in the required inputs: a unique `build_id`, app name, Android package id, output format (`apk` or `aab`), project type (`web`, `android`, or `flutter`), and a public source ZIP URL.
+3. After the run succeeds, open the run and download the `android-package` artifact. It contains the package and signature/checksum report.
+
+This manual route uses GitHub's own signed-in session and does not need a personal access token. The local dashboard's automatic one-click dispatch still needs a token entered into its Build Engine page.
