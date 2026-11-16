@@ -25,7 +25,7 @@ on:
         required: true
         type: string
       source_url:
-        description: Public source archive URL or repo:sources/<build_id>.zip
+        description: Public source ZIP URL or repo:<project-folder> or repo:sources/<build_id>.zip
         required: false
         type: string
       icon_data:
@@ -93,23 +93,39 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$WORK/src" "$OUT"
+          mkdir -p "$WORK/src" "$WORK/project" "$OUT"
           if [[ "$SOURCE_URL" == repo:* ]]; then
-            archive="${SOURCE_URL#repo:}"
-            test -f "$GITHUB_WORKSPACE/$archive"
-            cp "$GITHUB_WORKSPACE/$archive" "$WORK/source.zip"
+            source_rel="${SOURCE_URL#repo:}"
+            if [[ "$source_rel" == *"OWNER/REPO"* || -z "$source_rel" || "$source_rel" == /* || "/$source_rel/" == *"/../"* ]]; then
+              echo 'Set source_url to a real repository path such as repo:apps/money-book or a ZIP path.' >&2
+              exit 1
+            fi
+            source_path="$GITHUB_WORKSPACE/$source_rel"
+            if [[ -d "$source_path" ]]; then
+              cp -R "$source_path"/. "$WORK/project"/
+            elif [[ -f "$source_path" ]]; then
+              cp "$source_path" "$WORK/source.zip"
+            else
+              echo "Repository source path does not exist: $source_rel" >&2
+              exit 1
+            fi
+          elif [[ "$SOURCE_URL" == *"OWNER/REPO"* ]]; then
+            echo 'Replace OWNER/REPO in the example with the actual public source repository.' >&2
+            exit 1
           elif [[ -n "$SOURCE_URL" ]]; then
             curl --fail --location --silent --show-error "$SOURCE_URL" -o "$WORK/source.zip"
           else
             echo 'No project source was provided.' >&2
             exit 1
           fi
-          unzip -q "$WORK/source.zip" -d "$WORK/src"
-          count=$(find "$WORK/src" -mindepth 1 -maxdepth 1 | wc -l)
-          if [[ "$count" -eq 1 ]] && [[ -d "$(find "$WORK/src" -mindepth 1 -maxdepth 1 -type d | head -n1)" ]]; then
-            mv "$(find "$WORK/src" -mindepth 1 -maxdepth 1 -type d | head -n1)" "$WORK/project"
-          else
-            mv "$WORK/src" "$WORK/project"
+          if [[ -f "$WORK/source.zip" ]]; then
+            unzip -q "$WORK/source.zip" -d "$WORK/src"
+            count=$(find "$WORK/src" -mindepth 1 -maxdepth 1 | wc -l)
+            if [[ "$count" -eq 1 ]] && [[ -d "$(find "$WORK/src" -mindepth 1 -maxdepth 1 -type d | head -n1)" ]]; then
+              cp -R "$(find "$WORK/src" -mindepth 1 -maxdepth 1 -type d | head -n1)"/. "$WORK/project"/
+            else
+              cp -R "$WORK/src"/. "$WORK/project"/
+            fi
           fi
           echo "SRC=$WORK/project" >> "$GITHUB_ENV"
           echo "Project files: $(find "$WORK/project" -type f | wc -l)"
